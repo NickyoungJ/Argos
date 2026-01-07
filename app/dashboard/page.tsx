@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MonitorForm } from '@/components/monitors/monitor-form'
@@ -95,17 +96,35 @@ export default function DashboardPage() {
   const canAddMore = monitors.length < tierInfo.maxMonitors
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">대시보드</h1>
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <span className="text-2xl font-bold">🚫 NoMoreF5</span>
+            </Link>
+            <nav className="flex items-center gap-4">
+              <Link href="/#features">
+                <Button variant="ghost" size="sm">기능</Button>
+              </Link>
+              <Link href="/#pricing">
+                <Button variant="ghost" size="sm">요금제</Button>
+              </Link>
+              <Button variant="outline" onClick={handleLogout}>
+                로그아웃
+              </Button>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto p-6">
+        {/* 사용자 정보 */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">대시보드</h1>
           <p className="text-muted-foreground">{user.email}</p>
         </div>
-        <Button variant="outline" onClick={handleLogout}>
-          로그아웃
-        </Button>
-      </div>
 
       {/* 계정 정보 카드 */}
       <div className="grid gap-6 md:grid-cols-3 mb-6">
@@ -244,6 +263,7 @@ export default function DashboardPage() {
           productName={viewingLogs.name}
         />
       )}
+      </div>
     </div>
   )
 }

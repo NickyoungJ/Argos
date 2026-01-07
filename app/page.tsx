@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
 import { ElementSelector } from '@/components/selector/element-selector'
+import { createSupabaseClient } from '@/lib/supabase/client'
 
 export default function Home() {
   const router = useRouter()
@@ -24,6 +25,28 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  // 로그인 상태 체크
+  useEffect(() => {
+    checkAuthStatus()
+  }, [])
+
+  const checkAuthStatus = async () => {
+    const supabase = createSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    setIsLoggedIn(!!user)
+    setUserEmail(user?.email || null)
+  }
+
+  const handleLogout = async () => {
+    const supabase = createSupabaseClient()
+    await supabase.auth.signOut()
+    setIsLoggedIn(false)
+    setUserEmail(null)
+    router.refresh()
+  }
 
   const handleLoadPreview = () => {
     if (!url) return
@@ -96,15 +119,29 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold">🚫 NoMoreF5</span>
             </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <a href="#features" className="text-sm hover:text-primary">기능</a>
-              <a href="#pricing" className="text-sm hover:text-primary">요금제</a>
-              <Link href="/auth">
-                <Button variant="ghost">로그인</Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button>대시보드 →</Button>
-              </Link>
+            <nav className="flex items-center gap-4">
+              <a href="#features" className="text-sm hover:text-primary transition-colors">기능</a>
+              <a href="#pricing" className="text-sm hover:text-primary transition-colors">요금제</a>
+              <div className="h-4 w-px bg-gray-300 mx-2"></div>
+              {isLoggedIn ? (
+                <>
+                  <Link href="/dashboard">
+                    <Button variant="outline">대시보드</Button>
+                  </Link>
+                  <Button variant="ghost" onClick={handleLogout}>
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth">
+                    <Button variant="ghost">로그인</Button>
+                  </Link>
+                  <Link href="/auth">
+                    <Button>시작하기</Button>
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
         </div>
