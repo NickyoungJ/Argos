@@ -4,7 +4,18 @@
 
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization - API 키가 있을 때만 초기화
+let resend: Resend | null = null
+
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) {
+    return null
+  }
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@restockalert.com'
 
@@ -16,13 +27,15 @@ export async function sendEmail(
   subject: string,
   html: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
-    console.error('Resend API key not configured')
+  const resendClient = getResendClient()
+  
+  if (!resendClient) {
+    console.warn('Resend API key not configured - skipping email')
     return { success: false, error: '이메일 설정이 되어있지 않습니다' }
   }
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resendClient.emails.send({
       from: FROM_EMAIL,
       to,
       subject,

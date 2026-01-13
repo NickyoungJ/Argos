@@ -10,4 +10,5 @@ export {
   cronDailyCleanup,
 } from './cron-jobs'
 export { notificationSendJob } from './notification-job'
+export { testFunction } from './test-function'
 

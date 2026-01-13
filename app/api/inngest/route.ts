@@ -11,6 +11,7 @@ import {
   cronEveryThirtyMinutes,
   cronDailyCleanup,
   notificationSendJob,
+  testFunction,
 } from '@/lib/inngest/functions'
 
 export const { GET, POST, PUT } = serve({
@@ -22,6 +23,7 @@ export const { GET, POST, PUT } = serve({
     cronEveryThirtyMinutes,
     cronDailyCleanup,
     notificationSendJob,
+    testFunction,
   ],
 })
 
