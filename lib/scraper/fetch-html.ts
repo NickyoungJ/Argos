@@ -139,7 +139,7 @@ export async function fetchHtml(
       html,
       url,
       success: true,
-      page: returnPage ? page : undefined,  // returnPage가 true면 page 반환
+      page: returnPage ? (page ?? undefined) : undefined,  // returnPage가 true면 page 반환
     }
   } catch (error: any) {
     // 에러 시 정리
