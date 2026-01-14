@@ -5,9 +5,19 @@
 import OpenAI from 'openai'
 import { cleanHtml } from './clean-html'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Lazy initialization to avoid build-time errors
+let openaiInstance: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (!openaiInstance) {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다. Semantic 모드를 사용하려면 OpenAI API 키가 필요합니다.')
+    }
+    openaiInstance = new OpenAI({ apiKey })
+  }
+  return openaiInstance
+}
 
 export interface SemanticAnalysisOptions {
   targetOption?: string
@@ -38,6 +48,7 @@ export async function analyzeSemantic(
   const prompt = buildPrompt(cleanedHtml, targetOption, productName)
 
   try {
+    const openai = getOpenAI()
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
