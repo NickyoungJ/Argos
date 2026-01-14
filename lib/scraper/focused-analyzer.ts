@@ -4,7 +4,7 @@
 
 import { Page } from 'playwright'
 import crypto from 'crypto'
-import { cleanHTML } from './clean-html'
+import { cleanHtml } from './clean-html'
 
 export interface FocusedAnalysisResult {
   success: boolean
@@ -38,7 +38,7 @@ export async function analyzeFocusedArea(
     const rawHTML = await element.innerHTML()
 
     // HTML 정리 (불필요한 요소 제거)
-    const cleanedHTML = cleanHTML(rawHTML)
+    const cleanedHTML = cleanHtml(rawHTML)
 
     // 해시 생성
     const currentHash = crypto
@@ -89,7 +89,7 @@ export async function extractFocusedHTML(
     }
 
     const rawHTML = await element.innerHTML()
-    const cleanedHTML = cleanHTML(rawHTML)
+    const cleanedHTML = cleanHtml(rawHTML)
 
     return cleanedHTML
   } catch (error) {
