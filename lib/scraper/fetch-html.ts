@@ -93,7 +93,7 @@ export async function fetchHtml(
     page = await context.newPage()
 
     // 추가 스텔스 설정
-    await page.addInitScript(() => {
+    await page!.addInitScript(() => {
       // Navigator.webdriver 제거
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
@@ -114,7 +114,7 @@ export async function fetchHtml(
 
     // 페이지 로드
     const response = await withTimeout(
-      page.goto(url, { waitUntil: 'networkidle', timeout }),
+      page!.goto(url, { waitUntil: 'networkidle', timeout }),
       timeout
     )
 
@@ -124,11 +124,11 @@ export async function fetchHtml(
 
     // 특정 셀렉터 대기 (옵션)
     if (waitForSelector) {
-      await page.waitForSelector(waitForSelector, { timeout: 5000 })
+      await page!.waitForSelector(waitForSelector, { timeout: 5000 })
     }
 
     // HTML 추출
-    const html = await page.content()
+    const html = await page!.content()
 
     // returnPage가 false면 context 닫기
     if (!returnPage && context) {
