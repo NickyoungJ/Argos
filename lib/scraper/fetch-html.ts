@@ -10,15 +10,25 @@ let browserInstance: Browser | null = null
 // 브라우저 인스턴스 가져오기 (재사용)
 async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.isConnected()) {
-    browserInstance = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-      ],
-    })
+    // Browserless (Vercel 배포용)
+    const browserlessUrl = process.env.BROWSERLESS_URL
+    
+    if (browserlessUrl) {
+      console.log('🌐 Connecting to Browserless...')
+      browserInstance = await chromium.connect(browserlessUrl)
+    } else {
+      // 로컬 Playwright
+      console.log('💻 Launching local Chromium...')
+      browserInstance = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-dev-shm-usage',
+        ],
+      })
+    }
   }
   return browserInstance
 }

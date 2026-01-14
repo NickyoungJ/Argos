@@ -262,7 +262,7 @@ export default function Home() {
                               {targetSelector}
                             </p>
                             <p className="text-sm text-green-900 truncate">
-                              "{selectorPreview}"
+                              &quot;{selectorPreview}&quot;
                             </p>
                           </div>
                           <button
@@ -372,7 +372,7 @@ export default function Home() {
                       <li>• 페이지에 변화가 감지될 때</li>
                       <li>• 품절 → 재입고 변경 시</li>
                       {mode === 'SEMANTIC' && targetOption && (
-                        <li>• "{targetOption}" 옵션 재입고 시</li>
+                        <li>• &quot;{targetOption}&quot; 옵션 재입고 시</li>
                       )}
                     </ul>
                   </div>
@@ -455,7 +455,7 @@ export default function Home() {
                       <div>
                         <h3 className="text-xl font-bold mb-2">AI 기반 분석</h3>
                         <p className="text-muted-foreground">
-                          GPT-4를 활용한 정확한 재입고 판단. "사이즈 270" 같은 특정 옵션만 추적할 수 있습니다.
+                          GPT-4를 활용한 정확한 재입고 판단. &quot;사이즈 270&quot; 같은 특정 옵션만 추적할 수 있습니다.
                         </p>
                       </div>
                     </div>

@@ -23,11 +23,6 @@ export default function DashboardPage() {
   const [viewingLogs, setViewingLogs] = useState<{ id: string; name: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'monitors' | 'upgrade'>('monitors')
 
-  useEffect(() => {
-    checkAuth()
-    fetchData()
-  }, [])
-
   const checkAuth = async () => {
     const supabase = createSupabaseClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -36,6 +31,12 @@ export default function DashboardPage() {
       router.push('/auth')
     }
   }
+
+  useEffect(() => {
+    checkAuth()
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fetchData = async () => {
     setLoading(true)

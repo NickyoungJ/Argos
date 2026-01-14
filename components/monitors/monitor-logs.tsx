@@ -29,6 +29,7 @@ export function MonitorLogs({ open, onOpenChange, monitorId, productName }: Moni
       setPage(0)
       setHasMore(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, monitorId])
 
   const fetchLogs = async (pageNum: number) => {

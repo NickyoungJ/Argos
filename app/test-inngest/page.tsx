@@ -55,8 +55,8 @@ export default function TestInngestPage() {
             <ol className="list-decimal list-inside space-y-1">
               <li>위 버튼 클릭</li>
               <li>Inngest Dev Server (http://localhost:8288) 또는 Cloud 대시보드 열기</li>
-              <li>"Runs" 탭에서 실행 로그 확인</li>
-              <li>성공하면 콘솔에 "Test event received" 출력됨</li>
+              <li>&quot;Runs&quot; 탭에서 실행 로그 확인</li>
+              <li>성공하면 콘솔에 &quot;Test event received&quot; 출력됨</li>
             </ol>
           </div>
         </CardContent>

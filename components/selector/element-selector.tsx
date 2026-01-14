@@ -161,7 +161,7 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
                   <strong>✓ 선택됨:</strong> {selectedSelector}
                 </p>
                 <p className="text-sm font-medium">
-                  "{previewText}"
+                  &quot;{previewText}&quot;
                 </p>
               </div>
             ) : hoveredElement ? (
