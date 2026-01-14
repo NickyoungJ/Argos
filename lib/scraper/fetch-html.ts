@@ -45,12 +45,14 @@ export interface FetchHtmlOptions {
   waitForSelector?: string
   timeout?: number
   delayBefore?: boolean
+  returnPage?: boolean  // true일 경우 page 객체도 반환 (focused 분석용)
 }
 
 export interface FetchHtmlResult {
   html: string
   url: string
   success: boolean
+  page?: Page  // Focused 분석용
   error?: string
 }
 
@@ -68,9 +70,11 @@ export async function fetchHtml(
     waitForSelector,
     timeout = 30000,
     delayBefore = true,
+    returnPage = false,
   } = options
 
   let page: Page | null = null
+  let context: any = null
 
   try {
     // 랜덤 딜레이 (봇 탐지 회피)
@@ -79,7 +83,7 @@ export async function fetchHtml(
     }
 
     const browser = await getBrowser()
-    const context = await browser.newContext({
+    context = await browser.newContext({
       userAgent: getRandomUserAgent(),
       viewport: { width: 1920, height: 1080 },
       locale: 'ko-KR',
@@ -126,27 +130,32 @@ export async function fetchHtml(
     // HTML 추출
     const html = await page.content()
 
-    await context.close()
+    // returnPage가 false면 context 닫기
+    if (!returnPage && context) {
+      await context.close()
+    }
 
     return {
       html,
       url,
       success: true,
+      page: returnPage ? page : undefined,  // returnPage가 true면 page 반환
     }
   } catch (error: any) {
+    // 에러 시 정리
+    if (context) {
+      try {
+        await context.close()
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
     return {
       html: '',
       url,
       success: false,
       error: error.message || 'Unknown error',
-    }
-  } finally {
-    if (page) {
-      try {
-        await page.close()
-      } catch (e) {
-        // Ignore close errors
-      }
     }
   }
 }

@@ -32,11 +32,15 @@ export async function runMonitor(
   url: string,
   options: MonitorOptions
 ): Promise<MonitorResult> {
+  let page: any = null
+  
   try {
     // 1. HTML 페칭
-    const fetchResult = await fetchHtml(url)
+    // targetSelector가 있으면 page 객체도 필요
+    const needsPage = !!options.targetSelector
+    const fetchResult = await fetchHtml(url, { returnPage: needsPage })
 
-    if (!fetchResult.success || !fetchResult.page) {
+    if (!fetchResult.success) {
       return {
         success: false,
         changed: false,
@@ -47,7 +51,16 @@ export async function runMonitor(
 
     // 2. CSS Selector가 있으면 Focused 분석
     if (options.targetSelector) {
-      return await runFocusedMonitor(fetchResult.page, options)
+      if (!fetchResult.page) {
+        return {
+          success: false,
+          changed: false,
+          message: 'Page 객체를 가져올 수 없습니다',
+        }
+      }
+      
+      page = fetchResult.page
+      return await runFocusedMonitor(page, options)
     }
 
     // 3. CSS Selector가 없으면 전체 페이지 분석
@@ -69,6 +82,15 @@ export async function runMonitor(
       changed: false,
       message: '모니터링 실패',
       error: error.message || 'Unknown error',
+    }
+  } finally {
+    // page가 있으면 정리
+    if (page) {
+      try {
+        await page.context().close()
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
   }
 }
