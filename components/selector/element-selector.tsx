@@ -2,8 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { generateOptimalSelector, getElementPreviewText } from '@/lib/utils/selector'
 
 interface ElementSelectorProps {
   url: string
@@ -12,110 +10,103 @@ interface ElementSelectorProps {
 }
 
 export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProps) {
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedSelector, setSelectedSelector] = useState<string | null>(null)
   const [previewText, setPreviewText] = useState<string>('')
-  const [hoveredElement, setHoveredElement] = useState<{
-    selector: string
-    text: string
-  } | null>(null)
+  const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null)
 
-  // iframe 내부의 요소에 이벤트 리스너 추가
+  // 스크린샷 로드
   useEffect(() => {
-    const iframe = document.getElementById('preview-iframe') as HTMLIFrameElement
-    if (!iframe || !iframe.contentWindow) return
+    const loadScreenshot = async () => {
+      setLoading(true)
+      setError(null)
 
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
+      try {
+        const response = await fetch('/api/screenshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        })
 
-    // 기존 하이라이트 모두 제거
-    iframeDoc.querySelectorAll('[data-hover-highlight]').forEach((el) => {
-      el.removeAttribute('data-hover-highlight')
-    })
-    iframeDoc.querySelectorAll('[data-selected-highlight]').forEach((el) => {
-      el.removeAttribute('data-selected-highlight')
-    })
+        if (!response.ok) {
+          throw new Error('스크린샷 로드 실패')
+        }
 
-    const handleMouseOver = (e: MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-
-      const target = e.target as Element
-      if (!target || target === iframeDoc.body || target === iframeDoc.documentElement) {
-        return
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        setScreenshotUrl(objectUrl)
+      } catch (err: any) {
+        console.error('Screenshot error:', err)
+        setError(err.message || '스크린샷을 불러올 수 없습니다')
+      } finally {
+        setLoading(false)
       }
-
-      const selector = generateOptimalSelector(target)
-      const text = getElementPreviewText(target)
-
-      setHoveredElement({ selector, text })
-
-      // 하이라이트 스타일 추가
-      target.setAttribute('data-hover-highlight', 'true')
     }
 
-    const handleMouseOut = (e: MouseEvent) => {
-      const target = e.target as Element
-      if (target) {
-        target.removeAttribute('data-hover-highlight')
-      }
-      setHoveredElement(null)
-    }
+    loadScreenshot()
 
-    const handleClick = (e: MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-
-      const target = e.target as Element
-      if (!target || target === iframeDoc.body || target === iframeDoc.documentElement) {
-        return
-      }
-
-      const selector = generateOptimalSelector(target)
-      const text = getElementPreviewText(target)
-
-      setSelectedSelector(selector)
-      setPreviewText(text)
-
-      // 모든 하이라이트 제거
-      iframeDoc.querySelectorAll('[data-hover-highlight]').forEach((el) => {
-        el.removeAttribute('data-hover-highlight')
-      })
-      iframeDoc.querySelectorAll('[data-selected-highlight]').forEach((el) => {
-        el.removeAttribute('data-selected-highlight')
-      })
-
-      // 선택된 요소 하이라이트
-      target.setAttribute('data-selected-highlight', 'true')
-    }
-
-    // 스타일 추가
-    const style = iframeDoc.createElement('style')
-    style.textContent = `
-      [data-hover-highlight="true"] {
-        outline: 2px dashed #3b82f6 !important;
-        outline-offset: 2px !important;
-        cursor: pointer !important;
-        background-color: rgba(59, 130, 246, 0.1) !important;
-      }
-      [data-selected-highlight="true"] {
-        outline: 3px solid #10b981 !important;
-        outline-offset: 2px !important;
-        background-color: rgba(16, 185, 129, 0.15) !important;
-      }
-    `
-    iframeDoc.head.appendChild(style)
-
-    // 이벤트 리스너 등록
-    iframeDoc.addEventListener('mouseover', handleMouseOver)
-    iframeDoc.addEventListener('mouseout', handleMouseOut)
-    iframeDoc.addEventListener('click', handleClick)
-
+    // Cleanup
     return () => {
-      iframeDoc.removeEventListener('mouseover', handleMouseOver)
-      iframeDoc.removeEventListener('mouseout', handleMouseOut)
-      iframeDoc.removeEventListener('click', handleClick)
-      style.remove()
+      if (screenshotUrl) {
+        URL.revokeObjectURL(screenshotUrl)
+      }
     }
   }, [url])
+
+  // 이미지 클릭 핸들러
+  const handleImageClick = async (e: React.MouseEvent<HTMLImageElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    // 실제 이미지 크기 대비 클릭 위치 비율 계산
+    const img = e.currentTarget
+    const scaleX = 1280 / img.clientWidth // 스크린샷은 1280px 고정
+    const scaleY = 720 / img.clientHeight // 스크린샷은 720px 고정
+    
+    const actualX = Math.round(x * scaleX)
+    const actualY = Math.round(y * scaleY)
+
+    console.log(`Clicked at: (${actualX}, ${actualY})`)
+
+    try {
+      setLoading(true)
+      const response = await fetch('/api/element-from-point', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, x: actualX, y: actualY }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'CSS Selector 추출 실패')
+      }
+
+      setSelectedSelector(data.selector)
+      setPreviewText(data.preview)
+      console.log('Selected:', data)
+    } catch (err: any) {
+      console.error('Element selection error:', err)
+      alert(err.message || '요소 선택 실패')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 마우스 이동 핸들러 (위치 표시용)
+  const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    setHoveredPosition({ x, y })
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredPosition(null)
+  }
 
   const handleConfirm = () => {
     if (selectedSelector) {
@@ -132,7 +123,7 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
             <div className="flex-1">
               <h3 className="text-lg font-bold mb-1">🎯 감시할 영역을 선택하세요</h3>
               <p className="text-sm text-blue-100">
-                👇 아래 페이지에서 감시하고 싶은 부분에 마우스를 올리고 클릭하세요
+                👇 아래 스크린샷에서 감시하고 싶은 부분을 클릭하세요
               </p>
             </div>
             <div className="flex gap-2">
@@ -140,43 +131,44 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
                 variant="outline" 
                 onClick={onCancel}
                 className="bg-white text-blue-600 hover:bg-gray-100"
+                disabled={loading}
               >
                 취소
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={!selectedSelector}
+                disabled={!selectedSelector || loading}
                 className="bg-green-500 hover:bg-green-600 text-white min-w-[150px] disabled:bg-gray-400"
               >
-                {selectedSelector ? '✓ 이 영역 감시하기' : '영역을 선택하세요'}
+                {selectedSelector ? '✓ 이 영역 감시하기' : '영역을 클릭하세요'}
               </Button>
             </div>
           </div>
 
           {/* 상태 표시 */}
           <div className="mt-3">
-            {selectedSelector ? (
+            {loading ? (
+              <div className="p-3 bg-blue-800 rounded-lg border-2 border-blue-400 text-center">
+                <p className="text-sm">⏳ 로딩 중...</p>
+              </div>
+            ) : selectedSelector ? (
               <div className="p-3 bg-green-500 rounded-lg border-2 border-green-300">
                 <p className="text-xs font-mono mb-1">
                   <strong>✓ 선택됨:</strong> {selectedSelector}
                 </p>
-                <p className="text-sm font-medium">
+                <p className="text-sm font-medium truncate">
                   &quot;{previewText}&quot;
-                </p>
-              </div>
-            ) : hoveredElement ? (
-              <div className="p-3 bg-blue-500 rounded-lg border-2 border-blue-300">
-                <p className="text-xs font-mono mb-1">
-                  <strong>호버 중:</strong> {hoveredElement.selector}
-                </p>
-                <p className="text-sm truncate">
-                  {hoveredElement.text}
                 </p>
               </div>
             ) : (
               <div className="p-3 bg-blue-800 rounded-lg border-2 border-dashed border-blue-400">
                 <p className="text-sm text-center">
-                  ⬇️ 아래 페이지에서 원하는 영역에 마우스를 올려보세요
+                  ⬇️ 아래 스크린샷에서 원하는 영역을 클릭하세요
+                  {hoveredPosition && (
+                    <span className="ml-2 font-mono">
+                      (x: {Math.round(hoveredPosition.x)}, y: {Math.round(hoveredPosition.y)})
+                    </span>
+                  )}
                 </p>
               </div>
             )}
@@ -184,9 +176,47 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
         </div>
       </div>
 
-      {/* 페이지 상단 여백 (안내 바 높이만큼) */}
+      {/* 페이지 상단 여백 */}
       <div className="h-[180px]"></div>
+
+      {/* 스크린샷 표시 */}
+      <div className="container mx-auto px-4 pb-8">
+        {error ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+            <p className="text-red-800 font-semibold mb-2">❌ 오류</p>
+            <p className="text-red-600">{error}</p>
+            <Button 
+              onClick={onCancel} 
+              variant="outline" 
+              className="mt-4"
+            >
+              돌아가기
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="bg-gray-100 rounded-lg p-12 text-center animate-pulse">
+            <div className="w-full h-96 bg-gray-200 rounded"></div>
+            <p className="mt-4 text-gray-600">스크린샷 로딩 중...</p>
+          </div>
+        ) : screenshotUrl ? (
+          <div className="relative">
+            <div className="border-4 border-blue-500 rounded-lg overflow-hidden shadow-2xl">
+              <img
+                src={screenshotUrl}
+                alt="Page Screenshot"
+                className="w-full cursor-crosshair"
+                onClick={handleImageClick}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={{ maxWidth: '100%', height: 'auto' }}
+              />
+            </div>
+            <p className="text-center text-sm text-gray-600 mt-4">
+              💡 <strong>Tip:</strong> 가격, 재고 표시, 구매 버튼 등 변화를 감지하고 싶은 부분을 클릭하세요
+            </p>
+          </div>
+        ) : null}
+      </div>
     </>
   )
 }
-
