@@ -4,11 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { chromium } from 'playwright'
 
 export async function POST(request: NextRequest) {
-  let browser = null
-  
   try {
     const { url, x, y } = await request.json()
 
@@ -19,124 +16,84 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Browserless 또는 로컬 Playwright
+    // Browserless /function API 사용
     const browserlessToken = process.env.BROWSERLESS_API_KEY || process.env.BROWSERLESS_URL?.match(/token=([^&]+)/)?.[1]
     
-    if (browserlessToken) {
-      try {
-        const wsUrl = `wss://chrome.browserless.io?token=${browserlessToken}&stealth`
-        console.log('🌐 Connecting to Browserless WebSocket with stealth...')
-        browser = await chromium.connect(wsUrl, { 
-          timeout: 45000,
-          slowMo: 100, // 더 자연스럽게
-        })
-        console.log('✅ Connected to Browserless')
-      } catch (error: any) {
-        console.error('❌ Browserless connection failed:', error.message)
-        console.log('💻 Falling back to local Chromium...')
-        browser = await chromium.launch({ headless: true })
-      }
-    } else {
-      console.log('💻 Launching local Chromium...')
-      browser = await chromium.launch({ headless: true })
+    if (!browserlessToken) {
+      return NextResponse.json(
+        { error: 'BROWSERLESS_API_KEY가 설정되지 않았습니다' },
+        { status: 500 }
+      )
     }
 
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      locale: 'ko-KR',
-      timezoneId: 'Asia/Seoul',
-    })
-
-    const page = await context.newPage()
+    console.log(`🌐 Using Browserless /function API for element selection`)
+    console.log(`📍 Coordinates: (${x}, ${y})`)
     
-    // 봇 감지 우회 스크립트
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
-      })
-      
-      // Chrome 객체 추가
-      Object.defineProperty(window, 'chrome', {
-        get: () => ({
-          runtime: {},
-          loadTimes: () => {},
-          csi: () => {},
-        }),
-      })
-      
-      // Permissions API 오버라이드
-      const originalQuery = window.navigator.permissions.query
-      window.navigator.permissions.query = (parameters: any) => (
-        parameters.name === 'notifications'
-          ? Promise.resolve({ state: 'denied' } as PermissionStatus)
-          : originalQuery(parameters)
-      )
+    // Browserless /function 엔드포인트로 커스텀 코드 실행
+    const response = await fetch(`https://chrome.browserless.io/function?token=${browserlessToken}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code: `
+          module.exports = async ({ page }) => {
+            await page.setViewport({ width: 1280, height: 720 });
+            await page.goto('${url}', { waitUntil: 'networkidle2' });
+            await page.waitForTimeout(2000);
+            
+            const result = await page.evaluate((coords) => {
+              const element = document.elementFromPoint(coords.x, coords.y);
+              
+              if (!element) {
+                return { error: '해당 위치에 요소가 없습니다' };
+              }
+
+              // CSS Selector 생성
+              const getSelector = (el) => {
+                if (el.id) return '#' + el.id;
+                
+                const classes = Array.from(el.classList).filter(c => c && !c.includes(' '));
+                if (classes.length > 0) {
+                  const classSelector = '.' + classes.join('.');
+                  const matches = document.querySelectorAll(classSelector);
+                  if (matches.length === 1) return classSelector;
+                }
+                
+                const tagName = el.tagName.toLowerCase();
+                if (el.parentElement) {
+                  const siblings = Array.from(el.parentElement.children);
+                  const index = siblings.indexOf(el) + 1;
+                  const parentSelector = getSelector(el.parentElement);
+                  return parentSelector + ' > ' + tagName + ':nth-child(' + index + ')';
+                }
+                
+                return tagName;
+              };
+
+              const selector = getSelector(element);
+              const text = (element.textContent || '').trim().slice(0, 100) || '(텍스트 없음)';
+              const tagName = element.tagName.toLowerCase();
+
+              return { selector, preview: text, tagName };
+            }, { x: ${x}, y: ${y} });
+            
+            return result;
+          };
+        `,
+      }),
     })
-    
-    console.log(`📄 Loading page for element selection: ${url}`)
-    await page.goto(url, { 
-      waitUntil: 'networkidle',
-      timeout: 30000 
-    })
 
-    await page.waitForTimeout(2000)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Browserless function API error:', errorText)
+      throw new Error(`Browserless API error: ${response.status} ${errorText}`)
+    }
 
-    // 좌표에서 요소 찾기 및 Selector 생성
-    const result = await page.evaluate((coords) => {
-      const element = document.elementFromPoint(coords.x, coords.y)
-      
-      if (!element) {
-        return { error: '해당 위치에 요소가 없습니다' }
-      }
+    const result = await response.json()
+    console.log('✅ Element selection result:', result)
 
-      // CSS Selector 생성 (고유한 selector)
-      const getSelector = (el: Element): string => {
-        // ID가 있으면 사용
-        if (el.id) {
-          return `#${el.id}`
-        }
-
-        // Class들 사용
-        const classes = Array.from(el.classList).filter(c => c && !c.includes(' '))
-        if (classes.length > 0) {
-          const classSelector = `.${classes.join('.')}`
-          const matches = document.querySelectorAll(classSelector)
-          if (matches.length === 1) {
-            return classSelector
-          }
-        }
-
-        // 부모와 조합
-        const tagName = el.tagName.toLowerCase()
-        if (el.parentElement) {
-          const siblings = Array.from(el.parentElement.children)
-          const index = siblings.indexOf(el) + 1
-          const parentSelector = getSelector(el.parentElement)
-          return `${parentSelector} > ${tagName}:nth-child(${index})`
-        }
-
-        return tagName
-      }
-
-      const selector = getSelector(element)
-      
-      // 미리보기 텍스트 (최대 100자)
-      const text = element.textContent?.trim().slice(0, 100) || '(텍스트 없음)'
-      
-      // 요소 타입
-      const tagName = element.tagName.toLowerCase()
-
-      return {
-        selector,
-        preview: text,
-        tagName,
-      }
-    }, { x, y })
-
-    await context.close()
-
-    if ('error' in result) {
+    if (result.error) {
       return NextResponse.json(
         { error: result.error },
         { status: 400 }
@@ -148,14 +105,10 @@ export async function POST(request: NextRequest) {
       ...result,
     })
   } catch (error: any) {
-    console.error('Element from point error:', error)
+    console.error('❌ Element from point error:', error)
     return NextResponse.json(
       { error: error.message || 'CSS Selector 추출 실패' },
       { status: 500 }
     )
-  } finally {
-    if (browser && !process.env.BROWSERLESS_URL) {
-      await browser.close().catch(() => {})
-    }
   }
 }
