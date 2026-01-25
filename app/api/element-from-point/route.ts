@@ -36,51 +36,48 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        code: `
-          module.exports = async ({ page }) => {
-            await page.setViewport({ width: 1280, height: 720 });
-            await page.goto('${url}', { waitUntil: 'networkidle2' });
-            await page.waitForTimeout(2000);
+        code: `async ({ page }) => {
+          await page.setViewport({ width: 1280, height: 720 });
+          await page.goto('${url}', { waitUntil: 'networkidle2', timeout: 30000 });
+          await page.waitForTimeout(2000);
+          
+          const result = await page.evaluate((coords) => {
+            const element = document.elementFromPoint(coords.x, coords.y);
             
-            const result = await page.evaluate((coords) => {
-              const element = document.elementFromPoint(coords.x, coords.y);
+            if (!element) {
+              return { error: '해당 위치에 요소가 없습니다' };
+            }
+
+            const getSelector = (el) => {
+              if (el.id) return '#' + el.id;
               
-              if (!element) {
-                return { error: '해당 위치에 요소가 없습니다' };
+              const classes = Array.from(el.classList).filter(c => c && !c.includes(' '));
+              if (classes.length > 0) {
+                const classSelector = '.' + classes.join('.');
+                const matches = document.querySelectorAll(classSelector);
+                if (matches.length === 1) return classSelector;
               }
+              
+              const tagName = el.tagName.toLowerCase();
+              if (el.parentElement) {
+                const siblings = Array.from(el.parentElement.children);
+                const index = siblings.indexOf(el) + 1;
+                const parentSelector = getSelector(el.parentElement);
+                return parentSelector + ' > ' + tagName + ':nth-child(' + index + ')';
+              }
+              
+              return tagName;
+            };
 
-              // CSS Selector 생성
-              const getSelector = (el) => {
-                if (el.id) return '#' + el.id;
-                
-                const classes = Array.from(el.classList).filter(c => c && !c.includes(' '));
-                if (classes.length > 0) {
-                  const classSelector = '.' + classes.join('.');
-                  const matches = document.querySelectorAll(classSelector);
-                  if (matches.length === 1) return classSelector;
-                }
-                
-                const tagName = el.tagName.toLowerCase();
-                if (el.parentElement) {
-                  const siblings = Array.from(el.parentElement.children);
-                  const index = siblings.indexOf(el) + 1;
-                  const parentSelector = getSelector(el.parentElement);
-                  return parentSelector + ' > ' + tagName + ':nth-child(' + index + ')';
-                }
-                
-                return tagName;
-              };
+            const selector = getSelector(element);
+            const text = (element.textContent || '').trim().slice(0, 100) || '(텍스트 없음)';
+            const tagName = element.tagName.toLowerCase();
 
-              const selector = getSelector(element);
-              const text = (element.textContent || '').trim().slice(0, 100) || '(텍스트 없음)';
-              const tagName = element.tagName.toLowerCase();
-
-              return { selector, preview: text, tagName };
-            }, { x: ${x}, y: ${y} });
-            
-            return result;
-          };
-        `,
+            return { selector, preview: text, tagName };
+          }, { x: ${x}, y: ${y} });
+          
+          return result;
+        }`,
       }),
     })
 
