@@ -27,11 +27,22 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // 로그인 상태 체크
   useEffect(() => {
     checkAuthStatus()
   }, [])
+
+  // Preview screenshot cleanup
+  useEffect(() => {
+    return () => {
+      if (previewScreenshot) {
+        URL.revokeObjectURL(previewScreenshot)
+      }
+    }
+  }, [previewScreenshot])
 
   const checkAuthStatus = async () => {
     const supabase = createSupabaseClient()
@@ -48,9 +59,33 @@ export default function Home() {
     router.refresh()
   }
 
-  const handleLoadPreview = () => {
+  const handleLoadPreview = async () => {
     if (!url) return
+    
+    setLoadingPreview(true)
     setShowPreview(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+
+      if (!response.ok) {
+        throw new Error('스크린샷 로드 실패')
+      }
+
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      setPreviewScreenshot(objectUrl)
+    } catch (err: any) {
+      console.error('Preview screenshot error:', err)
+      setError('페이지 미리보기를 불러올 수 없습니다. 새 창에서 열기를 시도하세요.')
+    } finally {
+      setLoadingPreview(false)
+    }
   }
 
   const handleStartMonitoring = async () => {
@@ -224,13 +259,30 @@ export default function Home() {
                   </Button>
                 </div>
                 <div className="border rounded-lg overflow-hidden bg-gray-50">
-                  <iframe
-                    id="preview-iframe"
-                    src={url}
-                    className="w-full h-[600px]"
-                    title="Page Preview"
-                  />
+                  {loadingPreview ? (
+                    <div className="flex items-center justify-center h-[600px]">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">페이지 스크린샷 로딩 중...</p>
+                      </div>
+                    </div>
+                  ) : previewScreenshot ? (
+                    <img
+                      src={previewScreenshot}
+                      alt="Page Preview"
+                      className="w-full h-auto"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-[600px] text-gray-500">
+                      URL을 입력하고 Go 버튼을 클릭하세요
+                    </div>
+                  )}
                 </div>
+                {error && (
+                  <p className="text-sm text-red-600 mt-2">
+                    ⚠️ {error}
+                  </p>
+                )}
               </Card>
             </div>
 
