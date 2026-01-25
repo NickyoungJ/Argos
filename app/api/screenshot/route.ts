@@ -42,14 +42,12 @@ export async function POST(request: NextRequest) {
             width: 1280,
             height: 720,
           },
-          waitForTimeout: 2000,
+          waitFor: 2000,
           gotoOptions: {
-            waitUntil: 'networkidle',
+            waitUntil: 'networkidle2', // Puppeteer 형식
           },
-          // Stealth 모드 활성화
           addScriptTag: [{
             content: `
-              // 봇 감지 우회
               Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
               window.chrome = { runtime: {} };
             `
