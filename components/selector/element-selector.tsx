@@ -33,11 +33,21 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
         if (!response.ok) {
           // 에러 상세 정보 파싱
           const errorData = await response.json().catch(() => ({}))
-          console.error('Screenshot API error:', errorData)
+          console.error('Screenshot API error:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          })
           
-          const errorMsg = errorData.details 
-            ? `${errorData.error}\n\nDetails: ${JSON.stringify(errorData.details, null, 2)}`
-            : errorData.error || '스크린샷 로드 실패'
+          let errorMsg = `스크린샷 로드 실패 (${response.status})`
+          
+          if (response.status === 504) {
+            errorMsg = '⏱️ 타임아웃: 페이지 로딩이 너무 오래 걸립니다.\n\n- Browserless 연결 확인 필요\n- Vercel 환경변수 BROWSERLESS_URL 형식 확인'
+          } else if (errorData.details) {
+            errorMsg = `${errorData.error}\n\nDetails: ${JSON.stringify(errorData.details, null, 2)}`
+          } else if (errorData.error) {
+            errorMsg = errorData.error
+          }
           
           throw new Error(errorMsg)
         }

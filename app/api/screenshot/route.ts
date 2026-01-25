@@ -24,7 +24,11 @@ export async function POST(request: NextRequest) {
     
     if (browserlessUrl) {
       console.log('🌐 Connecting to Browserless for screenshot...')
-      browser = await chromium.connect(browserlessUrl)
+      console.log('Browserless URL:', browserlessUrl.substring(0, 40) + '...')
+      
+      const startTime = Date.now()
+      browser = await chromium.connect(browserlessUrl, { timeout: 30000 })
+      console.log(`✅ Connected to Browserless in ${Date.now() - startTime}ms`)
     } else {
       console.log('💻 Launching local Chromium for screenshot...')
       browser = await chromium.launch({ headless: true })
@@ -38,19 +42,25 @@ export async function POST(request: NextRequest) {
     const page = await context.newPage()
     
     // 페이지 로드
+    console.log(`📄 Loading page: ${url}`)
+    const loadStart = Date.now()
     await page.goto(url, { 
       waitUntil: 'networkidle',
       timeout: 30000 
     })
+    console.log(`✅ Page loaded in ${Date.now() - loadStart}ms`)
 
     // 짧은 대기 (렌더링 완료)
     await page.waitForTimeout(1000)
 
     // 스크린샷 생성
+    console.log('📸 Taking screenshot...')
+    const screenshotStart = Date.now()
     const screenshot = await page.screenshot({
       type: 'png',
       fullPage: false, // 보이는 영역만
     })
+    console.log(`✅ Screenshot taken in ${Date.now() - screenshotStart}ms (${screenshot.length} bytes)`)
 
     await context.close()
     
@@ -62,14 +72,19 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Screenshot error:', error)
+    console.error('❌ Screenshot error:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n')
+    })
     
     // 더 자세한 에러 정보 반환
     const errorDetails = {
       message: error.message || '스크린샷 생성 실패',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      name: error.name,
       browserless: !!process.env.BROWSERLESS_URL,
-      url: request.url,
+      browserlessUrlPrefix: process.env.BROWSERLESS_URL?.substring(0, 40),
+      timestamp: new Date().toISOString(),
     }
     
     return NextResponse.json(
