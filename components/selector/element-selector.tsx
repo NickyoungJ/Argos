@@ -116,9 +116,9 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
   }
 
   return (
-    <>
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
       {/* 상단 고정 안내 바 */}
-      <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-2xl">
+      <div className="sticky top-0 left-0 right-0 z-[60] bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-2xl">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
@@ -177,11 +177,8 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
         </div>
       </div>
 
-      {/* 페이지 상단 여백 */}
-      <div className="h-[180px]"></div>
-
       {/* 스크린샷 표시 */}
-      <div className="container mx-auto px-4 pb-8">
+      <div className="container mx-auto px-4 py-8">
         {error ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
             <p className="text-red-800 font-semibold mb-2">❌ 오류</p>
@@ -218,6 +215,6 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
           </div>
         ) : null}
       </div>
-    </>
+    </div>
   )
 }
