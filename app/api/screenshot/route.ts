@@ -38,20 +38,9 @@ export async function POST(request: NextRequest) {
             type: 'png',
             fullPage: false,
           },
-          viewport: {
-            width: 1280,
-            height: 720,
-          },
-          waitFor: 2000,
           gotoOptions: {
-            waitUntil: 'networkidle2', // Puppeteer 형식
+            waitUntil: 'networkidle2',
           },
-          addScriptTag: [{
-            content: `
-              Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-              window.chrome = { runtime: {} };
-            `
-          }],
         }),
       })
 
