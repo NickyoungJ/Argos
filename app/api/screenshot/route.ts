@@ -19,58 +19,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Browserless 또는 로컬 Playwright
-    const browserlessUrl = process.env.BROWSERLESS_URL
+    // Browserless API 토큰
+    const browserlessToken = process.env.BROWSERLESS_API_KEY || process.env.BROWSERLESS_URL?.match(/token=([^&]+)/)?.[1]
     
-    if (browserlessUrl) {
-      console.log('🌐 Connecting to Browserless for screenshot...')
-      console.log('Browserless URL:', browserlessUrl.substring(0, 40) + '...')
+    if (browserlessToken) {
+      // Browserless HTTP API 사용 (더 안정적)
+      console.log('🌐 Using Browserless HTTP API for screenshot...')
       
       const startTime = Date.now()
-      browser = await chromium.connect(browserlessUrl, { timeout: 30000 })
-      console.log(`✅ Connected to Browserless in ${Date.now() - startTime}ms`)
+      const response = await fetch(`https://chrome.browserless.io/screenshot?token=${browserlessToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: url,
+          options: {
+            type: 'png',
+            fullPage: false,
+          },
+          viewport: {
+            width: 1280,
+            height: 720,
+          },
+          waitForTimeout: 1000,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Browserless API error: ${response.status} ${errorText}`)
+      }
+
+      const screenshot = await response.arrayBuffer()
+      console.log(`✅ Screenshot completed via Browserless HTTP API in ${Date.now() - startTime}ms (${screenshot.byteLength} bytes)`)
+      
+      // 이미지로 반환
+      return new Response(new Uint8Array(screenshot), {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'no-cache',
+        },
+      })
     } else {
+      // 로컬 Playwright 사용
       console.log('💻 Launching local Chromium for screenshot...')
       browser = await chromium.launch({ headless: true })
+
+      const context = await browser.newContext({
+        viewport: { width: 1280, height: 720 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      })
+
+      const page = await context.newPage()
+      
+      // 페이지 로드
+      console.log(`📄 Loading page: ${url}`)
+      const loadStart = Date.now()
+      await page.goto(url, { 
+        waitUntil: 'networkidle',
+        timeout: 30000 
+      })
+      console.log(`✅ Page loaded in ${Date.now() - loadStart}ms`)
+
+      // 짧은 대기 (렌더링 완료)
+      await page.waitForTimeout(1000)
+
+      // 스크린샷 생성
+      console.log('📸 Taking screenshot...')
+      const screenshotStart = Date.now()
+      const screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: false,
+      })
+      console.log(`✅ Screenshot taken in ${Date.now() - screenshotStart}ms (${screenshot.length} bytes)`)
+
+      await context.close()
+      
+      // 이미지로 반환
+      return new Response(new Uint8Array(screenshot), {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'no-cache',
+        },
+      })
     }
-
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    })
-
-    const page = await context.newPage()
-    
-    // 페이지 로드
-    console.log(`📄 Loading page: ${url}`)
-    const loadStart = Date.now()
-    await page.goto(url, { 
-      waitUntil: 'networkidle',
-      timeout: 30000 
-    })
-    console.log(`✅ Page loaded in ${Date.now() - loadStart}ms`)
-
-    // 짧은 대기 (렌더링 완료)
-    await page.waitForTimeout(1000)
-
-    // 스크린샷 생성
-    console.log('📸 Taking screenshot...')
-    const screenshotStart = Date.now()
-    const screenshot = await page.screenshot({
-      type: 'png',
-      fullPage: false, // 보이는 영역만
-    })
-    console.log(`✅ Screenshot taken in ${Date.now() - screenshotStart}ms (${screenshot.length} bytes)`)
-
-    await context.close()
-    
-    // 이미지로 반환 (Buffer를 Uint8Array로 변환)
-    return new Response(new Uint8Array(screenshot), {
-      headers: {
-        'Content-Type': 'image/png',
-        'Cache-Control': 'no-cache',
-      },
-    })
   } catch (error: any) {
     console.error('❌ Screenshot error:', {
       message: error.message,

@@ -20,11 +20,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Browserless 또는 로컬 Playwright
-    const browserlessUrl = process.env.BROWSERLESS_URL
+    const browserlessToken = process.env.BROWSERLESS_API_KEY || process.env.BROWSERLESS_URL?.match(/token=([^&]+)/)?.[1]
     
-    if (browserlessUrl) {
-      browser = await chromium.connect(browserlessUrl)
+    if (browserlessToken) {
+      const wsUrl = `wss://chrome.browserless.io?token=${browserlessToken}`
+      console.log('🌐 Connecting to Browserless WebSocket...')
+      browser = await chromium.connect(wsUrl, { timeout: 30000 })
     } else {
+      console.log('💻 Launching local Chromium...')
       browser = await chromium.launch({ headless: true })
     }
 
