@@ -42,7 +42,18 @@ export async function POST(request: NextRequest) {
             width: 1280,
             height: 720,
           },
-          waitForTimeout: 1000,
+          waitForTimeout: 2000,
+          gotoOptions: {
+            waitUntil: 'networkidle',
+          },
+          // Stealth 모드 활성화
+          addScriptTag: [{
+            content: `
+              // 봇 감지 우회
+              Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+              window.chrome = { runtime: {} };
+            `
+          }],
         }),
       })
 

@@ -23,9 +23,19 @@ export async function POST(request: NextRequest) {
     const browserlessToken = process.env.BROWSERLESS_API_KEY || process.env.BROWSERLESS_URL?.match(/token=([^&]+)/)?.[1]
     
     if (browserlessToken) {
-      const wsUrl = `wss://chrome.browserless.io?token=${browserlessToken}`
-      console.log('🌐 Connecting to Browserless WebSocket...')
-      browser = await chromium.connect(wsUrl, { timeout: 30000 })
+      try {
+        const wsUrl = `wss://chrome.browserless.io?token=${browserlessToken}&stealth`
+        console.log('🌐 Connecting to Browserless WebSocket with stealth...')
+        browser = await chromium.connect(wsUrl, { 
+          timeout: 45000,
+          slowMo: 100, // 더 자연스럽게
+        })
+        console.log('✅ Connected to Browserless')
+      } catch (error: any) {
+        console.error('❌ Browserless connection failed:', error.message)
+        console.log('💻 Falling back to local Chromium...')
+        browser = await chromium.launch({ headless: true })
+      }
     } else {
       console.log('💻 Launching local Chromium...')
       browser = await chromium.launch({ headless: true })
@@ -33,17 +43,44 @@ export async function POST(request: NextRequest) {
 
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      locale: 'ko-KR',
+      timezoneId: 'Asia/Seoul',
     })
 
     const page = await context.newPage()
     
+    // 봇 감지 우회 스크립트
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      })
+      
+      // Chrome 객체 추가
+      Object.defineProperty(window, 'chrome', {
+        get: () => ({
+          runtime: {},
+          loadTimes: () => {},
+          csi: () => {},
+        }),
+      })
+      
+      // Permissions API 오버라이드
+      const originalQuery = window.navigator.permissions.query
+      window.navigator.permissions.query = (parameters: any) => (
+        parameters.name === 'notifications'
+          ? Promise.resolve({ state: 'denied' } as PermissionStatus)
+          : originalQuery(parameters)
+      )
+    })
+    
+    console.log(`📄 Loading page for element selection: ${url}`)
     await page.goto(url, { 
       waitUntil: 'networkidle',
       timeout: 30000 
     })
 
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     // 좌표에서 요소 찾기 및 Selector 생성
     const result = await page.evaluate((coords) => {
