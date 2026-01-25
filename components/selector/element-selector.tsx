@@ -31,7 +31,15 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
         })
 
         if (!response.ok) {
-          throw new Error('스크린샷 로드 실패')
+          // 에러 상세 정보 파싱
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Screenshot API error:', errorData)
+          
+          const errorMsg = errorData.details 
+            ? `${errorData.error}\n\nDetails: ${JSON.stringify(errorData.details, null, 2)}`
+            : errorData.error || '스크린샷 로드 실패'
+          
+          throw new Error(errorMsg)
         }
 
         const blob = await response.blob()

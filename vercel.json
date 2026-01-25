@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "app/api/screenshot/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/element-from-point/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

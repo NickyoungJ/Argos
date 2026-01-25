@@ -63,8 +63,17 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Screenshot error:', error)
+    
+    // 더 자세한 에러 정보 반환
+    const errorDetails = {
+      message: error.message || '스크린샷 생성 실패',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      browserless: !!process.env.BROWSERLESS_URL,
+      url: request.url,
+    }
+    
     return NextResponse.json(
-      { error: error.message || '스크린샷 생성 실패' },
+      { error: error.message || '스크린샷 생성 실패', details: errorDetails },
       { status: 500 }
     )
   } finally {
