@@ -53,6 +53,7 @@ export function ElementSelector({ url, onSelect, onCancel }: ElementSelectorProp
         URL.revokeObjectURL(screenshotUrl)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url])
 
   // 이미지 클릭 핸들러

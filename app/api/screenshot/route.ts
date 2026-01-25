@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
 
     await context.close()
     
-    // 이미지로 반환
-    return new Response(screenshot, {
+    // 이미지로 반환 (Buffer를 Uint8Array로 변환)
+    return new Response(new Uint8Array(screenshot), {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'no-cache',
